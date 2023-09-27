@@ -20,7 +20,8 @@ hasher = CryptContext(schemes=["bcrypt"], deprecated="auto")
 TOKEN_LIFETIME_MINUTES = 30
 DB_URL = os.environ["DATABASE_URL"]
 AUTH_ISSUER = os.environ["AUTH_ISSUER"]
-
+PRIVATE_KEY_PATH = os.environ["PRIVATE_KEY_PATH"]
+PUBLIC_KEY_PATH = os.environ["PUBLIC_KEY_PATH"]
 pool = AsyncConnectionPool(DB_URL, open=False)
 
 
@@ -43,7 +44,7 @@ def filterize(to_filterize: str):
 
 
 def get_private_key():
-    with open("cert/private_key.pem", "rb") as key_file:
+    with open(PRIVATE_KEY_PATH, "rb") as key_file:
         return serialization.load_pem_private_key(
             key_file.read(),
             password=bytes(os.environ["PRIVATE_KEY_PASSWORD"], encoding="utf-8"),
@@ -63,7 +64,7 @@ def update_private_key():
 
 
 def get_public_key():
-    with open("cert/public_key.pub", "rb") as key_file:
+    with open(PUBLIC_KEY_PATH, "rb") as key_file:
         return serialization.load_pem_public_key(key_file.read()).public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
