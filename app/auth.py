@@ -43,7 +43,7 @@ def filterize(to_filterize: str):
 
 
 def get_private_key():
-    with open("app/cert/private_key.pem", "rb") as key_file:
+    with open("code/app/cert/private_key.pem", "rb") as key_file:
         return serialization.load_pem_private_key(
             key_file.read(),
             password=bytes(os.environ["PRIVATE_KEY_PASSWORD"], encoding="utf-8"),
@@ -63,7 +63,7 @@ def update_private_key():
 
 
 def get_public_key():
-    with open("app/cert/public_key.pub", "rb") as key_file:
+    with open("code/app/cert/public_key.pub", "rb") as key_file:
         return serialization.load_pem_public_key(key_file.read()).public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
