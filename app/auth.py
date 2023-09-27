@@ -191,7 +191,7 @@ async def filter_scope(name: str, owner: str) -> ScopesList:
     if len(res) == 0:
         return ScopesList(scopes=[], owners=[])
     scopes, owners = zip(*res)
-    return ScopesList(scopes=scopes, owners=owners)
+    return ScopesList(scopes=scopes, owners=owners)  # type: ignore
 
 
 async def delete_scope(name: str):
