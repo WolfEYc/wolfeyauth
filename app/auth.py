@@ -1,7 +1,5 @@
 from contextlib import asynccontextmanager
 from secrets import token_hex
-from typing import Any, TypeAlias, Union
-from psycopg import AsyncConnection, AsyncCursor
 from cryptography.hazmat.primitives import serialization
 from datetime import datetime, timedelta, timezone
 import os
@@ -28,6 +26,9 @@ pool = AsyncConnectionPool(DB_URL, open=False)
 
 @asynccontextmanager
 async def apc():
+    """
+    Async Pool Cursor
+    """
     async with pool.connection() as con:
         async with con.cursor() as cur:
             yield cur
@@ -35,6 +36,10 @@ async def apc():
 
 async def pc():
     pool.connection()
+
+
+def filterize(to_filterize: str):
+    return f"%{to_filterize.lower()}%"
 
 
 def get_private_key():
@@ -73,19 +78,25 @@ def update_public_key():
     public_key = optional_public_key
 
 
-async def create_user(name: str):
+async def create_client(name: str):
     key = token_hex(32)
     hashedkey = hasher.hash(key)
     async with apc() as c:
-        await c.execute("INSERT INTO user VALUES (%s, %s, NULL)", (name, hashedkey))
+        await c.execute(
+            """--sql
+            INSERT INTO client
+            VALUES (%(name)s, %(hashedkey)s, DEFAULT)
+            """,
+            {"name": name, "hashedkey": hashedkey},
+        )
     return key
 
 
-async def set_disabled_user(name: str, disabled: bool):
+async def set_disabled_client(name: str, disabled: bool):
     async with apc() as c:
         await c.execute(
-            """
-            UPDATE user
+            """--sql
+            UPDATE client
             SET disabled = %(disabled)s
             WHERE name = %(name)s
             """,
@@ -95,48 +106,48 @@ async def set_disabled_user(name: str, disabled: bool):
             raise Exception(f"{name} not found!")
 
 
-class DBUser(BaseModel):
+class DBclient(BaseModel):
     name: str
-    hashkey: str
+    hashedkey: str
     disabled: bool
 
 
-async def read_user(name: str) -> DBUser | None:
+async def read_client(name: str) -> DBclient | None:
     async with apc() as c:
-        c.row_factory = class_row(DBUser)
+        c.row_factory = class_row(DBclient)
         await c.execute(
-            """
-            SELECT *
-            FROM user
+            """--sql
+            SELECT name, hashedkey, disabled
+            FROM client
             WHERE name = %(name)s
             """,
             {"name": name},
         )
-        user = await c.fetchone()
-        return user
+        return await c.fetchone()
 
 
-async def filter_user(name: str, disabled: bool) -> list[str]:
+async def filter_client(name: str, disabled: bool) -> list[str]:
+    name = filterize(name)
     async with apc() as c:
         await c.execute(
-            """
+            """--sql
             SELECT name
-            FROM user
+            FROM client
             WHERE LOWER(name) LIKE %(name)s
             AND disabled = %(disabled)s
             LIMIT 30
             """,
             {"name": name, "disabled": disabled},
         )
-        users = await c.fetchall()
-        return [user[0] for user in users]
+        clients = await c.fetchall()
+    return [client[0] for client in clients]
 
 
-async def delete_user(name: str):
+async def delete_client(name: str):
     async with apc() as c:
         await c.execute(
             """--sql
-            DELETE FROM user
+            DELETE FROM client
             WHERE name = %(name)s
             """,
             {"name": name},
@@ -148,7 +159,7 @@ async def delete_user(name: str):
 async def create_scope(name: str, owner: str):
     async with apc() as c:
         await c.execute(
-            """
+            """--sql
             INSERT INTO scope
             VALUES(%(name)s, %(owner)s)
             """,
@@ -157,23 +168,36 @@ async def create_scope(name: str, owner: str):
     await create_access(owner, name)
 
 
-async def filter_scope(name: str, owner: str):
+class ScopesList(BaseModel):
+    scopes: list[str]
+    owners: list[str]
+
+
+async def filter_scope(name: str, owner: str) -> ScopesList:
+    name = filterize(name)
+    owner = filterize(owner)
     async with apc() as c:
         await c.execute(
-            """
+            """--sql
             SELECT *
             FROM scope
-            WHERE name LIKE :name
-                AND owner LIKE :owner
-            LIMIT 30
+            WHERE name LIKE %(name)s
+                AND owner LIKE %(owner)s
+            LIMIT 30;
             """,
+            {"name": name, "owner": owner},
         )
+        res = await c.fetchall()
+    if len(res) == 0:
+        return ScopesList(scopes=[], owners=[])
+    scopes, owners = zip(*res)
+    return ScopesList(scopes=scopes, owners=owners)
 
 
 async def delete_scope(name: str):
     async with apc() as c:
         await c.execute(
-            """
+            """--sql
             DELETE FROM scope
             WHERE name = %(name)s
             """,
@@ -185,116 +209,158 @@ async def delete_scope(name: str):
 
 class AuthenticateResult(Enum):
     SUCCESS = 0
-    USER_NOT_FOUND = 1
+    client_NOT_FOUND = 1
     INVALID_KEY = 2
-    USER_DISABLED = 3
+    client_DISABLED = 3
     NOT_AUTHORIZED = 4
 
 
-async def authenticate_user(name: str, key: str):
-    user = await read_user(name)
-    if user is None:
-        return AuthenticateResult.USER_NOT_FOUND
-    if user.disabled:
-        return AuthenticateResult.USER_DISABLED
-    if not hasher.verify(key, user.hashkey):
+async def authenticate_client(name: str, key: str):
+    client = await read_client(name)
+    if client is None:
+        return AuthenticateResult.client_NOT_FOUND
+    if client.disabled:
+        return AuthenticateResult.client_DISABLED
+    if not hasher.verify(key, client.hashedkey):
         return AuthenticateResult.INVALID_KEY
     return AuthenticateResult.SUCCESS
 
 
-async def read_scopes(user: str) -> list[str]:
+async def read_scopes(client: str) -> list[str]:
     async with apc() as c:
         await c.execute(
-            """
+            """--sql
             SELECT scopename
             FROM access
-            WHERE username = %(username)s
+            WHERE clientname = %(clientname)s
             """,
-            {"username": user},
+            {"clientname": client},
         )
         scopes = await c.fetchall()
-        return [scope[0] for scope in scopes]
+    return [scope[0] for scope in scopes]
 
 
-async def has_all_scopes(user: str, scopes_req: list[str]) -> bool:
-    has_scopes = await read_scopes(user)
+async def read_scope_owner(scope: str) -> str | None:
+    async with apc() as c:
+        await c.execute(
+            """--sql
+            SELECT owner
+            FROM scope
+            WHERE name = %(scope)s
+            """,
+            {"scope": scope},
+        )
+        res = await c.fetchone()
+    if res is None:
+        return None
+    return res[0]
+
+
+async def has_all_scopes(client: str, scopes_req: list[str]) -> bool:
+    has_scopes = await read_scopes(client)
     return all(scope in has_scopes for scope in scopes_req)
 
 
-async def has_any_scopes(user: str, scopes_req: list[str]) -> bool:
-    has_scopes = await read_scopes(user)
+async def has_any_scopes(client: str, scopes_req: list[str]) -> bool:
+    has_scopes = await read_scopes(client)
     return any(scope in has_scopes for scope in scopes_req)
 
 
-async def create_access(user: str, scope: str):
+async def create_access(client: str, scope: str):
     async with apc() as c:
         await c.execute(
-            """
+            """--sql
             INSERT INTO access
-            VALUES(%(username)s, %(scopename)s)
+            VALUES(%(clientname)s, %(scopename)s)
             """,
-            {"username": user, "scopename": scope},
+            {"clientname": client, "scopename": scope},
         )
 
 
-async def check_access(user: str, scope: str) -> bool:
+async def check_access(client: str, scope: str) -> bool:
     async with apc() as c:
         await c.execute(
-            """
+            """--sql
             SELECT EXISTS (
                 SELECT 1
                 FROM access
-                WHERE username = %(username)s
+                WHERE clientname = %(clientname)s
                     AND scopename = %(scopename)s
             )
             """,
-            {"username": user, "scopename": scope},
+            {"clientname": client, "scopename": scope},
         )
         res = await c.fetchone()
         return res is not None
 
 
-async def delete_access(user: str, scope: str):
+class AccessList(BaseModel):
+    scopes: list[str]
+    clients: list[str]
+
+
+async def filter_access(client: str, scope: str) -> AccessList:
+    client = filterize(client)
+    scope = filterize(scope)
     async with apc() as c:
         await c.execute(
-            """
-        DELETE FROM access
-        WHERE username = %(username)s
-            AND scopename = %(scopename)s
-        """,
-            {"username": user, "scopename": scope},
+            """--sql
+            SELECT scopename, clientname
+            FROM access
+            WHERE LOWER(clientname) LIKE %(client)s
+                AND LOWER(scopename) LIKE %(scope)s
+            LIMIT 30
+            """,
+            {"client": client, "scope": scope},
+        )
+        res = await c.fetchall()
+    if len(res) == 0:
+        return AccessList(scopes=[], clients=[])
+    scopes, clients = zip(*res)
+    return AccessList(scopes=scopes, clients=clients)
+
+
+async def delete_access(client: str, scope: str):
+    async with apc() as c:
+        await c.execute(
+            """--sql
+            DELETE FROM access
+            WHERE clientname = %(clientname)s
+                AND scopename = %(scopename)s
+            """,
+            {"clientname": client, "scopename": scope},
         )
         if c.rowcount == 0:
-            raise Exception(f"{user}'s access to {scope} not found!")
+            raise Exception(f"{client}'s access to {scope} not found!")
 
 
-def create_token(user: str, scopes: list[str]):
+def create_token(client: str, scopes: list[str]):
     expires = datetime.now(tz=timezone.utc) + timedelta(minutes=TOKEN_LIFETIME_MINUTES)
-    payload = {"sub": user, "iss": AUTH_ISSUER, "aud": scopes, "exp": expires}
+    payload = {"sub": client, "iss": AUTH_ISSUER, "aud": scopes, "exp": expires}
     return jwt.encode(payload, private_key, algorithm="RS256")
 
 
-async def login(user: str, key: str, scopes: list[str]):
+async def login(client: str, key: str, scopes: list[str]):
     """
     Performs authentication + token creation
     Conforms to OAuth2 RFC
     RS256 for central auth scope
     """
 
-    authentication_res = await authenticate_user(user, key)
+    authentication_res = await authenticate_client(client, key)
     if authentication_res != AuthenticateResult.SUCCESS:
         return authentication_res
 
-    has_scopes = await has_all_scopes(user, scopes)
+    has_scopes = await has_all_scopes(client, scopes)
     if not has_scopes:
         return AuthenticateResult.NOT_AUTHORIZED
 
-    token = create_token(user, scopes)
+    token = create_token(client, scopes)
     return token
 
 
-class User(BaseModel):
-    username: str
+class client(BaseModel):
+    clientname: str
     scopes: list[str]
 
     def has_scope(self, scope: str):
@@ -305,19 +371,6 @@ class User(BaseModel):
 
     def is_admin(self):
         return self.has_scope("admin")
-
-
-def verify_token(token: str):
-    token_bytes = bytes(token, encoding="utf-8")
-    payload = jwt.decode(
-        token_bytes,
-        public_key,
-        issuer=AUTH_ISSUER,
-        algorithms=["RS256"],
-        options={"require": ["exp", "iss", "sub", "aud"]},
-    )
-
-    return User(username=payload.get("sub"), scopes=payload.get("aud"))
 
 
 def authorize_token(token: str, scopes: list[str]):
@@ -335,4 +388,4 @@ def authorize_token(token: str, scopes: list[str]):
         options={"require": ["exp", "iss", "sub", "aud"]},
     )
 
-    return User(username=payload.get("sub"), scopes=payload.get("aud"))
+    return client(clientname=payload.get("sub"), scopes=payload.get("aud"))

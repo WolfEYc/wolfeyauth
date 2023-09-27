@@ -1,8 +1,8 @@
 -- +migrate Up
-CREATE TABLE user (
+CREATE TABLE client (
 	name VARCHAR(64) PRIMARY KEY,
 	hashedkey VARCHAR(128) NOT NULL,
-	disabled BOOL
+	disabled BOOL NOT NULL DEFAULT FALSE
 );
 -- +migrate Down
-DROP TABLE user;
+DROP TABLE client;
