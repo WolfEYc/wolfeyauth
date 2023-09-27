@@ -2,9 +2,6 @@
 FROM python:3.10
 
 # 
-
-COPY ./cert /cert
-# 
 COPY ./requirements.txt /requirements.txt
 
 # 
