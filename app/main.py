@@ -66,8 +66,11 @@ def authorize_client(
 
 
 async def try_edit_user(sub: str, admin: auth.client):
-    subject_is_admin = await auth.check_access(sub, "admin")
-    if subject_is_admin and not admin.is_chad():
+    if (
+        sub != admin.clientname
+        and not admin.is_chad()
+        and await auth.check_access(sub, "admin")
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"{admin.clientname} must be a CHAD disable {sub}",
