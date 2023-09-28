@@ -3,7 +3,7 @@ from typing import Annotated
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app import auth
+from app.internal import auth
 
 router = APIRouter(
     prefix="/oauth2",

@@ -1,6 +1,11 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from app.internal import db
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-import app.auth as auth
+import app.internal.auth as auth
 from app.routers import clients, token, scopes, access
 
 
@@ -8,10 +13,10 @@ from app.routers import clients, token, scopes, access
 async def lifespan(app: FastAPI):
     auth.update_private_key()
     auth.update_public_key()
-    await auth.pool.open()
+    await db.pool.open()
     yield
 
-    await auth.pool.close()
+    await db.pool.close()
 
 
 tags_metadata = [

@@ -1,18 +1,18 @@
 from fastapi import APIRouter, HTTPException, status
-from app import auth
+from app.internal import access
 from app.dependencies import AdminDep, BasicAuthDep, StrForm, try_grant_access
 
 router = APIRouter(
-    prefix="/scopes",
-    tags=["scopes"],
+    prefix="/access",
+    tags=["access"],
 )
 
 
-@router.post("/access", status_code=status.HTTP_201_CREATED, tags=["access"])
+@router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_access(clientname: StrForm, scope: StrForm, client: AdminDep):
     try_grant_access(client, scope)
     try:
-        await auth.create_access(clientname, scope)
+        await access.create_access(clientname, scope)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -25,23 +25,23 @@ async def create_access(clientname: StrForm, scope: StrForm, client: AdminDep):
     }
 
 
-@router.get("/access", response_model=auth.AccessList, tags=["access"])
+@router.get("/", response_model=access.AccessList)
 async def read_access(
     client: BasicAuthDep, client_filter: str = "", scope_filter: str = ""
 ):
-    return await auth.filter_access(client_filter, scope_filter)
+    return await access.filter_access(client_filter, scope_filter)
 
 
-@router.delete("/access", tags=["access"])
+@router.delete("/")
 async def delete_access(clientname: StrForm, scope: StrForm, client: AdminDep):
-    is_subject_admin = await auth.check_access(clientname, "admin")
+    is_subject_admin = await access.check_access(clientname, "admin")
     if is_subject_admin and not client.is_chad():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only CHADs can delete admin access",
         )
     try:
-        await auth.delete_access(client=clientname, scope=scope)
+        await access.delete_access(client=clientname, scope=scope)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

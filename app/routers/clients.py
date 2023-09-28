@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
-from app import auth
+from app.internal import clients
 from app.dependencies import AdminDep, BasicAuthDep, BoolForm, StrForm, try_edit_user
 
 router = APIRouter(
@@ -12,7 +12,7 @@ router = APIRouter(
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_client(new_client_name: StrForm, client: AdminDep):
     try:
-        key = await auth.create_client(new_client_name)
+        key = await clients.create_client(new_client_name)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     return {"client": new_client_name, "key": key, "caller": client.clientname}
@@ -30,7 +30,7 @@ class clientInfo(BaseModel):
 
 @router.get("/{clientname}", response_model=clientInfo)
 async def read_client(clientname: str, client: BasicAuthDep):
-    res = await auth.read_client(clientname)
+    res = await clients.read_client(clientname)
     if res is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"{clientname} not found"
@@ -42,15 +42,14 @@ async def read_client(clientname: str, client: BasicAuthDep):
 async def read_clients(
     client: BasicAuthDep, clientname_filter: str = "", disabled: bool = False
 ):
-    clients = await auth.filter_client(clientname_filter, disabled)
-    return clients
+    return await clients.filter_clients(clientname_filter, disabled)
 
 
 @router.put("/{clientname}/disable")
 async def update_client_disabled(subject: str, disabled: BoolForm, admin: AdminDep):
     await try_edit_user(subject, admin)
     try:
-        await auth.set_disabled_client(subject, disabled)
+        await clients.set_disabled_client(subject, disabled)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -64,7 +63,7 @@ async def update_client_disabled(subject: str, disabled: BoolForm, admin: AdminD
 async def update_client_key(sub: str, admin: AdminDep):
     await try_edit_user(sub, admin)
     try:
-        key = await auth.reset_client_key(sub)
+        key = await clients.reset_client_key(sub)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     return key
@@ -74,7 +73,7 @@ async def update_client_key(sub: str, admin: AdminDep):
 async def delete_client(sub: StrForm, admin: AdminDep):
     await try_edit_user(sub, admin)
     try:
-        await auth.delete_client(sub)
+        await clients.delete_client(sub)
     except:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="client not found"

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
-from app import auth
+from app.internal import scopes
 from app.dependencies import AdminDep, BasicAuthDep, StrForm
 
 router = APIRouter(
@@ -8,10 +8,10 @@ router = APIRouter(
 )
 
 
-@router.post("/scopes", status_code=status.HTTP_201_CREATED, tags=["scopes"])
+@router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_scope(name: StrForm, admin: AdminDep):
     try:
-        await auth.create_scope(name, admin.clientname)
+        await scopes.create_scope(name, admin.clientname)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -21,23 +21,23 @@ async def create_scope(name: StrForm, admin: AdminDep):
     return {"scope": name, "caller": admin.clientname}
 
 
-@router.get("/scopes", response_model=auth.ScopesList, tags=["scopes"])
+@router.get("/", response_model=scopes.ScopesList)
 async def read_scopes(
     client: BasicAuthDep, scope_filter: str = "", owner_filter: str = ""
 ):
-    return await auth.filter_scope(scope_filter, owner_filter)
+    return await scopes.filter_scope(scope_filter, owner_filter)
 
 
-@router.delete("/scopes", tags=["scopes"])
+@router.delete("/")
 async def delete_scope(scope: StrForm, client: AdminDep):
-    owner = await auth.read_scope_owner(scope)
+    owner = await scopes.read_scope_owner(scope)
     if owner != client.clientname and not client.is_chad():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You must be the owner or a CHAD to delete this scope",
         )
     try:
-        await auth.delete_scope(scope)
+        await scopes.delete_scope(scope)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

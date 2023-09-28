@@ -1,11 +1,12 @@
 import asyncio
-import app.auth as auth
+from app.internal import clients, db
+import app.internal.auth as auth
 
 
 async def main():
-    await auth.pool.open()
+    await db.pool.open()
     try:
-        wolfey_key = await auth.create_client("wolfey")
+        wolfey_key = await clients.create_client("wolfey")
         print("key:", wolfey_key)
         await auth.create_scope("basic", "wolfey")
         await auth.create_scope("admin", "wolfey")
@@ -13,7 +14,7 @@ async def main():
     except:
         print("Already bootstrapped! Moving on...")
 
-    await auth.pool.close()
+    await db.pool.close()
 
 
 asyncio.run(main())

@@ -2,7 +2,7 @@ from typing import Annotated
 from fastapi import Depends, Form, HTTPException, Security, status
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 
-from app import auth
+from app.internal import access, auth
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="token",
@@ -36,7 +36,7 @@ async def try_edit_user(sub: str, admin: auth.client):
     if (
         sub != admin.clientname
         and not admin.is_chad()
-        and await auth.check_access(sub, "admin")
+        and await access.check_access(sub, "admin")
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
