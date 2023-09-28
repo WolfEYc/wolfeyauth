@@ -22,6 +22,7 @@ DB_URL = os.environ["DATABASE_URL"]
 AUTH_ISSUER = os.environ["AUTH_ISSUER"]
 PRIVATE_KEY_PATH = os.environ["PRIVATE_KEY_PATH"]
 PUBLIC_KEY_PATH = os.environ["PUBLIC_KEY_PATH"]
+
 pool = AsyncConnectionPool(DB_URL, open=False)
 
 
