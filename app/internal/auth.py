@@ -6,8 +6,7 @@ from enum import Enum
 from pydantic import BaseModel
 from app.internal.clients import read_client
 from passlib.context import CryptContext
-
-from app.internal.scopes import has_all_scopes
+from app.internal.access import has_all_scopes
 
 hasher = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
