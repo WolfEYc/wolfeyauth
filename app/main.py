@@ -65,6 +65,15 @@ def authorize_client(
     return client
 
 
+async def try_edit_user(sub: str, admin: auth.client):
+    subject_is_admin = await auth.check_access(sub, "admin")
+    if subject_is_admin and not admin.is_chad():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"{admin.clientname} must be a CHAD disable {sub}",
+        )
+
+
 StrForm = Annotated[str, Form()]
 BoolForm = Annotated[bool, Form()]
 
@@ -127,62 +136,54 @@ async def read_clients(
     return clients
 
 
-@app.put("/clients", tags=["clients"])
-async def update_client_disabled(
-    clientname: StrForm, disabled: BoolForm, client: AdminDep
-):
-    subject_is_admin = await auth.check_access(clientname, "admin")
-    if subject_is_admin and not client.is_chad():
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"{client.clientname} must be a CHAD disable {clientname}",
-        )
+@app.put("/clients/{clientname}/disable", tags=["clients"])
+async def update_client_disabled(subject: str, disabled: BoolForm, admin: AdminDep):
+    await try_edit_user(subject, admin)
     try:
-        await auth.set_disabled_client(clientname, disabled)
+        await auth.set_disabled_client(subject, disabled)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         )
 
-    return {"client": clientname, "disabled": disabled, "caller": client.clientname}
+    return {"subject": subject, "disabled": disabled, "caller": admin.clientname}
+
+
+@app.put("/clients/{clientname}/resetkey", tags=["clients"])
+async def update_client_key(sub: str, admin: AdminDep):
+    await try_edit_user(sub, admin)
+    try:
+        key = await auth.reset_client_key(sub)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    return key
 
 
 @app.delete("/clients", tags=["clients"])
-async def delete_client(client_to_delete: StrForm, client: AdminDep):
-    if not (
-        client_to_delete == client.clientname
-        or client.is_chad()
-        or (
-            client.is_admin()
-            and await auth.has_any_scopes(client_to_delete, ["admin", "CHAD"])
-        )
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to delete this client",
-        )
+async def delete_client(sub: StrForm, admin: AdminDep):
+    await try_edit_user(sub, admin)
     try:
-        await auth.delete_client(client_to_delete)
+        await auth.delete_client(sub)
     except:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="client not found"
         )
 
-    return {"client": client_to_delete, "caller": client.clientname}
+    return {"client": sub, "caller": admin.clientname}
 
 
 @app.post("/scopes", status_code=status.HTTP_201_CREATED, tags=["scopes"])
-async def create_scope(name: StrForm, client: AdminDep):
+async def create_scope(name: StrForm, admin: AdminDep):
     try:
-        await auth.create_scope(name, client.clientname)
+        await auth.create_scope(name, admin.clientname)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(e),
         )
 
-    return {"scope": name, "caller": client.clientname}
+    return {"scope": name, "caller": admin.clientname}
 
 
 @app.get("/scopes", response_model=auth.ScopesList, tags=["scopes"])

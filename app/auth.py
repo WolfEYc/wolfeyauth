@@ -93,20 +93,6 @@ async def create_client(name: str):
     return key
 
 
-async def set_disabled_client(name: str, disabled: bool):
-    async with apc() as c:
-        await c.execute(
-            """--sql
-            UPDATE client
-            SET disabled = %(disabled)s
-            WHERE name = %(name)s
-            """,
-            {"name": name, "disabled": disabled},
-        )
-        if c.rowcount == 0:
-            raise Exception(f"{name} not found!")
-
-
 class DBclient(BaseModel):
     name: str
     hashedkey: str
@@ -142,6 +128,35 @@ async def filter_client(name: str, disabled: bool) -> list[str]:
         )
         clients = await c.fetchall()
     return [client[0] for client in clients]
+
+
+async def set_disabled_client(name: str, disabled: bool):
+    async with apc() as c:
+        await c.execute(
+            """--sql
+            UPDATE client
+            SET disabled = %(disabled)s
+            WHERE name = %(name)s
+            """,
+            {"name": name, "disabled": disabled},
+        )
+        if c.rowcount == 0:
+            raise Exception(f"{name} not found!")
+
+
+async def reset_client_key(name: str) -> str:
+    key = token_hex(32)
+    hashedkey = hasher.hash(key)
+    async with apc() as c:
+        await c.execute(
+            """--sql
+            UPDATE client
+            SET hashedkey = %(hashedkey)s
+            WHERE name = %(name)s
+            """,
+            {"name": name, "hashedkey": hashedkey},
+        )
+    return key
 
 
 async def delete_client(name: str):
