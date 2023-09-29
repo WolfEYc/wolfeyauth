@@ -1,11 +1,11 @@
 from typing import Annotated
-from fastapi import Depends, Form, HTTPException, Security, status
-from fastapi.security import OAuth2PasswordBearer, SecurityScopes
+from fastapi import Cookie, Depends, Form, HTTPException, Request, Security, status
+from fastapi.security import OAuth2PasswordBearer, SecurityScopes, APIKeyCookie
 
 from app.internal import access, auth
 
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="token",
+    tokenUrl="api/token",
     scopes={
         "basic": "Basic access, allow for creation of your own scopes and access",
         "admin": "Can disable or delete BASIC clients, scopes, and access",
@@ -14,10 +14,12 @@ oauth2_scheme = OAuth2PasswordBearer(
     },
 )  # use token authentication
 
+cookie_scheme = APIKeyCookie(name="access_token")
+
 RESERVED_SCOPES = ["admin", "CHAD"]
 
 
-def authorize_client(
+def authorize_client_api(
     security_scopes: SecurityScopes, token: Annotated[str, Depends(oauth2_scheme)]
 ):
     try:
@@ -27,6 +29,21 @@ def authorize_client(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
             headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return client
+
+
+def authorize_client_browser(
+    security_scopes: SecurityScopes, token: Annotated[str, Depends(cookie_scheme)]
+):
+    try:
+        client = auth.authorize_token(token, security_scopes.scopes)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+            detail=str(e),
+            headers={"Location": "/login"},
         )
 
     return client
@@ -55,6 +72,16 @@ def try_grant_access(admin: auth.client, service: str):
 StrForm = Annotated[str, Form()]
 BoolForm = Annotated[bool, Form()]
 
-BasicAuthDep = Annotated[auth.client, Security(authorize_client, scopes=["basic"])]
-AdminDep = Annotated[auth.client, Security(authorize_client, scopes=["admin"])]
-CHADep = Annotated[auth.client, Security(authorize_client, scopes=["CHAD"])]
+BasicAuthDep = Annotated[auth.client, Security(authorize_client_api, scopes=["basic"])]
+AdminDep = Annotated[auth.client, Security(authorize_client_api, scopes=["admin"])]
+CHADep = Annotated[auth.client, Security(authorize_client_api, scopes=["CHAD"])]
+
+BrowserBasicAuthDep = Annotated[
+    auth.client, Security(authorize_client_browser, scopes=["basic"])
+]
+BrowserAdminDep = Annotated[
+    auth.client, Security(authorize_client_browser, scopes=["admin"])
+]
+BrowserCHADep = Annotated[
+    auth.client, Security(authorize_client_browser, scopes=["CHAD"])
+]

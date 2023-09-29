@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.internal import auth
 
 router = APIRouter(
-    prefix="/oauth2",
-    tags=["Auth"],
+    prefix="/token",
+    tags=["token"],
 )
 
 
@@ -16,7 +16,7 @@ class Token(BaseModel):
     token_type: str
 
 
-@router.post("/token")
+@router.post("")
 async def create_token(form: Annotated[OAuth2PasswordRequestForm, Depends()]):
     login_result = await auth.login(form.username, form.password, form.scopes)
     if not isinstance(login_result, str):

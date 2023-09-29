@@ -8,7 +8,7 @@ router = APIRouter(
 )
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_scope(name: StrForm, admin: AdminDep):
     try:
         await scopes.create_scope(name, admin.clientname)
@@ -21,14 +21,14 @@ async def create_scope(name: StrForm, admin: AdminDep):
     return {"scope": name, "caller": admin.clientname}
 
 
-@router.get("/", response_model=scopes.ScopesList)
+@router.get("", response_model=scopes.ScopesList)
 async def read_scopes(
     client: BasicAuthDep, scope_filter: str = "", owner_filter: str = ""
 ):
     return await scopes.filter_scope(scope_filter, owner_filter)
 
 
-@router.delete("/")
+@router.delete("")
 async def delete_scope(scope: StrForm, client: AdminDep):
     owner = await scopes.read_scope_owner(scope)
     if owner != client.clientname and not client.is_chad():

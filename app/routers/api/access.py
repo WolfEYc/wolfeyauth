@@ -8,7 +8,7 @@ router = APIRouter(
 )
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_access(clientname: StrForm, scope: StrForm, client: AdminDep):
     try_grant_access(client, scope)
     try:
@@ -25,14 +25,14 @@ async def create_access(clientname: StrForm, scope: StrForm, client: AdminDep):
     }
 
 
-@router.get("/", response_model=access.AccessList)
+@router.get("", response_model=access.AccessList)
 async def read_access(
     client: BasicAuthDep, client_filter: str = "", scope_filter: str = ""
 ):
     return await access.filter_access(client_filter, scope_filter)
 
 
-@router.delete("/")
+@router.delete("")
 async def delete_access(clientname: StrForm, scope: StrForm, client: AdminDep):
     is_subject_admin = await access.check_access(clientname, "admin")
     if is_subject_admin and not client.is_chad():

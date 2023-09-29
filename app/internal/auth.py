@@ -2,13 +2,10 @@ from cryptography.hazmat.primitives import serialization
 from datetime import datetime, timedelta, timezone
 import os
 import jwt
-from enum import Enum
 from pydantic import BaseModel
-from app.internal.clients import read_client
-from passlib.context import CryptContext
 from app.internal.access import has_all_scopes
+from app.internal.clients import AuthenticateResult, authenticate_client
 
-hasher = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 private_key: bytes
 public_key: bytes
@@ -54,25 +51,6 @@ def update_public_key():
     if optional_public_key is None:
         raise Exception("Failed to get public key!")
     public_key = optional_public_key
-
-
-class AuthenticateResult(Enum):
-    SUCCESS = 0
-    client_NOT_FOUND = 1
-    INVALID_KEY = 2
-    client_DISABLED = 3
-    NOT_AUTHORIZED = 4
-
-
-async def authenticate_client(name: str, key: str):
-    client = await read_client(name)
-    if client is None:
-        return AuthenticateResult.client_NOT_FOUND
-    if client.disabled:
-        return AuthenticateResult.client_DISABLED
-    if not hasher.verify(key, client.hashedkey):
-        return AuthenticateResult.INVALID_KEY
-    return AuthenticateResult.SUCCESS
 
 
 def create_token(client: str, scopes: list[str]):

@@ -9,7 +9,7 @@ router = APIRouter(
 )
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_client(new_client_name: StrForm, client: AdminDep):
     try:
         key = await clients.create_client(new_client_name)
@@ -38,7 +38,7 @@ async def read_client(clientname: str, client: BasicAuthDep):
     return clientInfo(clientname=res.name, disabled=res.disabled)
 
 
-@router.get("/", response_model=list[str])
+@router.get("", response_model=list[str])
 async def read_clients(
     client: BasicAuthDep, clientname_filter: str = "", disabled: bool = False
 ):
@@ -69,7 +69,7 @@ async def update_client_key(sub: str, admin: AdminDep):
     return key
 
 
-@router.delete("/")
+@router.delete("")
 async def delete_client(sub: StrForm, admin: AdminDep):
     await try_edit_user(sub, admin)
     try:

@@ -1,0 +1,26 @@
+<html>
+
+<head>
+    <title>Item Details</title>
+    <link href="{{ url_for('static', path='/css/pico.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', path='/css/pico-overrides.css') }}" rel="stylesheet">
+</head>
+
+<body>
+    <header>
+        <h2>Welcome to AuthWolfey!</h2>
+    </header>
+    <main>
+        <p>
+            Logged in as {{ clientname }}<br />
+            scopes: <br />
+        <ul>
+            {% for scope in scopes %}
+            <li>{{ scope }}</li>
+            {% endfor %}
+        </ul>
+        </p>
+    </main>
+</body>
+
+</html>

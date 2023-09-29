@@ -1,8 +1,11 @@
+from enum import Enum
 from secrets import token_hex
 from pydantic import BaseModel
 from app.internal.db import apc, filterize
 from psycopg.rows import class_row
-from app.internal.auth import hasher
+from passlib.context import CryptContext
+
+hasher = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class DBclient(BaseModel):
@@ -37,6 +40,25 @@ async def read_client(name: str) -> DBclient | None:
             {"name": name},
         )
         return await c.fetchone()
+
+
+class AuthenticateResult(Enum):
+    SUCCESS = 0
+    client_NOT_FOUND = 1
+    INVALID_KEY = 2
+    client_DISABLED = 3
+    NOT_AUTHORIZED = 4
+
+
+async def authenticate_client(name: str, key: str):
+    client = await read_client(name)
+    if client is None:
+        return AuthenticateResult.client_NOT_FOUND
+    if client.disabled:
+        return AuthenticateResult.client_DISABLED
+    if not hasher.verify(key, client.hashedkey):
+        return AuthenticateResult.INVALID_KEY
+    return AuthenticateResult.SUCCESS
 
 
 async def filter_clients(name: str, disabled: bool) -> list[str]:

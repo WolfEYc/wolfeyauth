@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
 
@@ -6,7 +7,7 @@ from app.internal import db
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import app.internal.auth as auth
-from app.routers import clients, token, scopes, access
+from app.routers import api, frontend
 
 
 @asynccontextmanager
@@ -36,11 +37,13 @@ tags_metadata = [
         "name": "access",
         "description": "Access defines a scope a client has access to",
     },
+    {"name": "frontend", "description": "HTMX + Jinja frontend for this app"},
 ]
 
 app = FastAPI(lifespan=lifespan, title="AuthWolfey", openapi_tags=tags_metadata)
 
-app.include_router(token.router)
-app.include_router(clients.router)
-app.include_router(scopes.router)
-app.include_router(access.router)
+
+app.include_router(api.router)
+app.include_router(frontend.router)
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
