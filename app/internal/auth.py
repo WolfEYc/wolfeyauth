@@ -1,10 +1,18 @@
+from enum import Enum
 from cryptography.hazmat.primitives import serialization
 from datetime import datetime, timedelta, timezone
 import os
+from fastapi.security import OAuth2PasswordRequestForm
 import jwt
 from pydantic import BaseModel
 from app.internal.access import has_all_scopes
 from app.internal.clients import AuthenticateResult, authenticate_client
+
+
+class Runtime(Enum):
+    PROD = 0
+    TEST = 1
+    DEV = 2
 
 
 private_key: bytes
@@ -12,9 +20,11 @@ public_key: bytes
 
 
 TOKEN_LIFETIME_MINUTES = 30
+TOKEN_LIFETIME_SECONDS = TOKEN_LIFETIME_MINUTES * 60
 AUTH_ISSUER = os.environ["AUTH_ISSUER"]
 PRIVATE_KEY_PATH = os.environ["PRIVATE_KEY_PATH"]
 PUBLIC_KEY_PATH = os.environ["PUBLIC_KEY_PATH"]
+RUNTIME = Runtime[os.environ["RUNTIME"]]
 
 
 def get_private_key():
@@ -59,22 +69,22 @@ def create_token(client: str, scopes: list[str]):
     return jwt.encode(payload, private_key, algorithm="RS256")
 
 
-async def login(client: str, key: str, scopes: list[str]):
+async def login(form: OAuth2PasswordRequestForm):
     """
     Performs authentication + token creation
     Conforms to OAuth2 RFC
     RS256 for central auth scope
     """
 
-    authentication_res = await authenticate_client(client, key)
+    authentication_res = await authenticate_client(form.username, form.password)
     if authentication_res != AuthenticateResult.SUCCESS:
         return authentication_res
 
-    has_scopes = await has_all_scopes(client, scopes)
+    has_scopes = await has_all_scopes(form.username, form.scopes)
     if not has_scopes:
         return AuthenticateResult.NOT_AUTHORIZED
 
-    token = create_token(client, scopes)
+    token = create_token(form.username, form.scopes)
     return token
 
 

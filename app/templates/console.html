@@ -1,25 +1,50 @@
 <html>
 
 <head>
-    <title>Item Details</title>
-    <link href="{{ url_for('static', path='/css/pico.min.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', path='/css/pico-overrides.css') }}" rel="stylesheet">
+    <title>Console</title>
+    <link href="/static/css/pico.min.css" rel="stylesheet">
+    <link href="/static/css/pico-overrides.css" rel="stylesheet">
 </head>
 
 <body>
-    <header>
-        <h2>Welcome to AuthWolfey!</h2>
-    </header>
-    <main>
-        <p>
-            Logged in as {{ clientname }}<br />
-            scopes: <br />
-        <ul>
-            {% for scope in scopes %}
-            <li>{{ scope }}</li>
-            {% endfor %}
-        </ul>
-        </p>
+    <main class="container">
+        <div class="grid">
+            <div>
+                <div class="grid">
+                    <a role="button" href="/login?logout=1">Logout</a>
+                </div>
+                <div class="grid">
+                    <table style="height: min-content;">
+                        <thead>
+                            <tr>
+                                <th>clientname</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th>{{ clientname }}</th>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>
+                                    scopes
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for scope in scopes %}
+                            <tr>
+                                <th>{{ scope }}</th>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </main>
 </body>
 

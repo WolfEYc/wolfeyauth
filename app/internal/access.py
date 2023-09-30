@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from app.internal.db import apc, filterize
 
+RESERVED_SCOPES = ["admin", "CHAD"]
+
 
 async def create_access(client: str, scope: str):
     async with apc() as c:
@@ -42,6 +44,11 @@ async def read_access(client: str) -> list[str]:
         )
         scopes = await c.fetchall()
     return [scope[0] for scope in scopes]
+
+
+async def get_reserved_access(client: str) -> list[str]:
+    has_scopes = await read_access(client)
+    return list(set(RESERVED_SCOPES).intersection(has_scopes))
 
 
 async def has_all_scopes(client: str, scopes_req: list[str]) -> bool:

@@ -1,3 +1,3 @@
-from fastapi.templating import Jinja2Templates
+from jinja2_fragments.fastapi import Jinja2Blocks
 
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Blocks(directory="app/templates")

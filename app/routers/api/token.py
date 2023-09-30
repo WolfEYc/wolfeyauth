@@ -18,7 +18,7 @@ class Token(BaseModel):
 
 @router.post("")
 async def create_token(form: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    login_result = await auth.login(form.username, form.password, form.scopes)
+    login_result = await auth.login(form)
     if not isinstance(login_result, str):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
