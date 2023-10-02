@@ -1,4 +1,3 @@
-import logging
 from dotenv import load_dotenv
 from fastapi.staticfiles import StaticFiles
 
